@@ -22,26 +22,31 @@ llm = ChatOpenAI(
     base_url=base_url
 )
 
-# --- 2. Define Agent State (NOW WITH 'router_decision') ---
+# --- 2. Define Agent State (Memory-Aware) ---
 class AgentState(TypedDict):
-    symptom_text: str
+    # This is now the ONLY input. It will contain the full chat history.
+    messages: Annotated[List[str], operator.add]
+    
+    # These keys will be populated by the agent's nodes
     analysis: str
     suggested_specialty: str
-    messages: Annotated[List[str], operator.add]
-    # NEW KEY: This will store the router's decision
     router_decision: str 
 
 # --- 3. Define Agent Nodes (Functions) ---
 
 def analyze_symptoms(state: AgentState):
     """
-    Node 1: Takes clear symptoms and returns a JSON analysis.
+    Node 1: Takes the FULL conversation history and returns a JSON analysis.
     """
     print("---NODE: ANALYZE_SYMPTOMS---")
     
     prompt_template = """
-    You are a medical triage assistant. Analyze the user's symptoms and suggest a relevant medical specialty.
-    The user's symptoms are: {symptom_text}
+    You are a medical triage assistant. Analyze the user's symptoms from the following conversation and suggest a relevant medical specialty.
+    The user's symptoms are in the chat history.
+    
+    CHAT HISTORY:
+    {chat_history}
+    
     Respond ONLY with a valid JSON object in the following format:
     {{
         "analysis": "A brief summary of the user's symptoms and potential cause.",
@@ -53,15 +58,17 @@ def analyze_symptoms(state: AgentState):
     chain = prompt | llm | StrOutputParser()
     
     try:
-        response_text = chain.invoke({"symptom_text": state["symptom_text"]})
+        # Join the list of messages into a single string for the prompt
+        history_str = "\n".join(state["messages"])
+        response_text = chain.invoke({"chat_history": history_str})
+        
         print(f"LLM raw response: {response_text}")
         response_json = json.loads(response_text)
         
-        # This node returns a DICTIONARY to update the state
         return {
             "analysis": response_json.get("analysis"),
             "suggested_specialty": response_json.get("suggested_specialty"),
-            "messages": ["Analysis complete."]
+            "messages": ["Analysis complete."] # This is a system message, not shown to user
         }
     except Exception as e:
         print(f"---ERROR: FAILED TO PARSE LLM JSON: {e}---")
@@ -72,24 +79,25 @@ def analyze_symptoms(state: AgentState):
 
 def clarify_symptoms(state: AgentState):
     """
-    Node 2: If symptoms are vague, this asks a follow-up question.
+    Node 2: Asks a follow-up question based on the conversation.
     """
     print("---NODE: CLARIFY_SYMPTOMS---")
     
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are Aasha, a helpful medical assistant. The user's symptom description is too vague. Ask one simple, specific follow-up question to get more details. Ask only the question."),
-        ("user", "User's symptoms: {symptom_text}")
+        ("system", "You are Aasha, a helpful medical assistant. The user's symptom description in the chat history is too vague. Ask one simple, specific follow-up question to get more details. Ask only the question."),
+        ("user", "CHAT HISTORY:\n{chat_history}")
     ])
     
     chain = prompt | llm | StrOutputParser()
     
     try:
-        question = chain.invoke({"symptom_text": state["symptom_text"]})
-        # This node returns a DICTIONARY to update the state
+        history_str = "\n".join(state["messages"])
+        question = chain.invoke({"chat_history": history_str})
+        
         return {
             "analysis": question,
             "suggested_specialty": "Pending Input",
-            "messages": [f"Asked clarifying question: {question}"]
+            "messages": [question] # This is Aasha's response
         }
     except Exception as e:
         print(f"---ERROR IN CLARIFY NODE: {e}---")
@@ -101,40 +109,43 @@ def clarify_symptoms(state: AgentState):
 
 def route_symptoms(state: AgentState):
     """
-    Node 3: (The Router) This node RUNS, makes a decision,
-    and returns a DICTIONARY to save that decision to the state.
+    Node 3: (The Router) Decides whether to analyze or clarify.
     """
     print("---NODE: ROUTE_SYMPTOMS---")
     
     prompt = ChatPromptTemplate.from_messages([
         ("system", """
-         You are a medical router. Your job is to decide if the user's symptoms are "clear" or "vague".
+         You are a medical router. Your job is to decide if the user's *latest message* provides clear symptoms, or if it's still vague, based on the *entire conversation*.
+         - "Clear" symptoms are specific (e.g., "chest pain", "fever", "coughing for 3 days").
+         - "Vague" symptoms are not specific (e.g., "I feel sick", "I'm not well", "something is wrong").
+         - If the user is answering a clarifying question, they are probably giving "clear" info.
+         
          Respond with ONLY the word 'clear' or 'vague'.
          """),
-        ("user", "Symptoms: {symptom_text}")
+        ("user", "CHAT HISTORY:\n{chat_history}")
     ])
     
     chain = prompt | llm | StrOutputParser()
     
     try:
-        decision = chain.invoke({"symptom_text": state["symptom_text"]})
+        history_str = "\n".join(state["messages"])
+        decision = chain.invoke({"chat_history": history_str})
         print(f"Router decision: {decision}")
         
         if "clear" in decision.lower():
-            return {"router_decision": "analyze_symptoms"} # Return a dict
+            return {"router_decision": "analyze_symptoms"}
         else:
-            return {"router_decision": "clarify_symptoms"} # Return a dict
+            return {"router_decision": "clarify_symptoms"}
             
     except Exception as e:
         print(f"---ERROR IN ROUTER: {e}---")
-        return {"router_decision": "clarify_symptoms"} # Return a dict
+        return {"router_decision": "clarify_symptoms"}
 
 # --- 4. Define the Conditional Edge (The NEW Function) ---
 
 def should_analyze(state: AgentState) -> Literal["analyze_symptoms", "clarify_symptoms"]:
     """
-    This is the new "Condition" function. It's not a node.
-    It just reads the state and returns a string for where to go next.
+    This is the Condition function. It just reads the router's decision.
     """
     print("---CONDITION: SHOULD_ANALYZE---")
     decision = state.get("router_decision", "clarify_symptoms")
@@ -157,10 +168,9 @@ workflow.set_entry_point("route_symptoms")
 
 # Add the conditional edges
 workflow.add_conditional_edges(
-    "route_symptoms",  # Branch from the router node
-    should_analyze,    # Use our new function to decide
+    "route_symptoms",
+    should_analyze,
     {
-        # Map the string output to the node names
         "analyze_symptoms": "analyze_symptoms",
         "clarify_symptoms": "clarify_symptoms"
     }
@@ -168,6 +178,8 @@ workflow.add_conditional_edges(
 
 # Add the final edges
 workflow.add_edge("analyze_symptoms", END)
+# NOTE: We change this edge. After clarifying, the agent just ends.
+# The user's *next* message will re-start the loop.
 workflow.add_edge("clarify_symptoms", END)
 
 # Compile the final app

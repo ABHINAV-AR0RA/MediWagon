@@ -6,22 +6,17 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 import uvicorn
+from typing import List
 
-# --- 1. Import Your New Agent ---
+# --- 1. Import Your Agent ---
 from symptom_agent import app as symptom_agent_app 
 
 # --- 2. Load Environment Variables ---
 load_dotenv()
-
 api_key = os.getenv("SHIVAAY_API_KEY")
 base_url = os.getenv("SHIVAAY_BASE_URL")
 
 # --- 3. Initialize the Shivaay LLM Client ---
-if not api_key:
-    print("FATAL ERROR: SHIVAAY_API_KEY not found in .env file")
-if not base_url:
-    print("FATAL ERROR: SHIVAAY_BASE_URL not found in .env file")
-
 try:
     llm = ChatOpenAI(
         model_name="shivaay",
@@ -39,7 +34,11 @@ app = FastAPI(
     description="This service runs all AI agents for the Aasha Healthcare app."
 )
 
-# --- 5. Define the "API Contract" (Request/Response Models) ---
+# --- 5. HACKATHON MEMORY (Simple Dictionary) ---
+# This will store chat histories by session_id
+chat_memory = {}
+
+# --- 6. Define the "API Contract" (Request/Response Models) ---
 
 class SymptomRequest(BaseModel):
     session_id: str
@@ -64,7 +63,7 @@ class ReminderResponse(BaseModel):
     status: str
     scheduled_time: str
 
-# --- 6. Create API Endpoints ---
+# --- 7. Create API Endpoints ---
 
 @app.get("/")
 def read_root():
@@ -74,36 +73,50 @@ def read_root():
 @app.post("/api/v1/agents/analyze-symptoms", response_model=SymptomResponse)
 async def analyze_symptoms(request: SymptomRequest):
     """
-    (Agent 1) Takes user symptoms and returns an analysis.
-    This now calls our real LangGraph agent.
+    (Agent 1) This is now a STATEFUL endpoint.
+    It remembers the conversation.
     """
-    print(f"Calling LangGraph agent with symptoms: {request.symptom_text}")
+    print(f"[{request.session_id}] Received symptoms: {request.symptom_text}")
     
-    # THIS IS THE CORRECTED, SAFER INPUT
+    # 1. Get history or start a new list
+    # We use .copy() to avoid issues
+    current_messages = chat_memory.get(request.session_id, []).copy()
+    
+    # 2. Add the new user message to the history
+    current_messages.append(request.symptom_text)
+
+    # 3. Prepare the input for the agent
     inputs = {
-        "symptom_text": request.symptom_text,
-        "messages": [],
-        "analysis": "",
-        "suggested_specialty": "",
-        "router_decision": ""
+        "messages": current_messages
     }
     
+    # 4. Run the graph
+    print(f"[{request.session_id}] Calling agent with history: {inputs}")
     final_state = symptom_agent_app.invoke(inputs)
     
+    # 5. Get the agent's response
+    aasha_response = final_state.get("analysis", "Error in analysis")
+    specialty = final_state.get("suggested_specialty", "Error")
+    
+    # 6. Save the new history
+    # Add Aasha's response to the history for next time
+    current_messages.append(aasha_response)
+    chat_memory[request.session_id] = current_messages
+    
+    print(f"[{request.session_id}] Full History: {chat_memory[request.session_id]}")
+    
+    # 7. Return the *latest* response
     return SymptomResponse(
-        analysis=final_state.get("analysis", "Error in analysis"),
-        suggested_specialty=final_state.get("suggested_specialty", "Error in analysis")
+        analysis=aasha_response,
+        suggested_specialty=specialty
     )
 
 
 @app.post("/api/v1/agents/summarize-report", response_model=ReportResponse)
 async def summarize_report(request: ReportRequest):
-    """
-    (Agent 2) Takes scrubbed medical text and summarizes it simply.
-    """
+    # (Agent 2) This remains unchanged
     if not llm:
         return ReportResponse(simple_summary="Error: LLM not initialized")
-    
     try:
         prompt = f"""
         You are 'Aasha', a helpful medical assistant.
@@ -119,16 +132,13 @@ async def summarize_report(request: ReportRequest):
 
 @app.post("/api/v1/agents/schedule-reminder", response_model=ReminderResponse)
 async def schedule_reminder(request: ReminderRequest):
-    """
-    (Agent 3) Receives a reminder request to be scheduled.
-    """
+    # (Agent 3) This remains unchanged
     print(f"Received reminder for {request.user_id}: {request.medication} at {request.time_text}")
-    
     return ReminderResponse(
         status="scheduled_placeholder",
         scheduled_time="19:00"
     )
 
-# --- 7. Run the Server ---
+# --- 8. Run the Server ---
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
