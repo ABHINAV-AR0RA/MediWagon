@@ -7,38 +7,41 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 import uvicorn
 
-# --- 1. Load Environment Variables ---
-# This line loads the SHIVAAY_API_KEY and SHIVAAY_BASE_URL from your .env file
+# --- 1. Import Your New Agent ---
+# This is the new line you added
+from symptom_agent import app as symptom_agent_app 
+
+# --- 2. Load Environment Variables ---
 load_dotenv()
 
 api_key = os.getenv("SHIVAAY_API_KEY")
 base_url = os.getenv("SHIVAAY_BASE_URL")
 
-# --- 2. Initialize the Shivaay LLM Client ---
+# --- 3. Initialize the Shivaay LLM Client ---
 if not api_key:
     print("FATAL ERROR: SHIVAAY_API_KEY not found in .env file")
 if not base_url:
     print("FATAL ERROR: SHIVAAY_BASE_URL not found in .env file")
 
-# We use the exact model name "shivaay" and the base_url you found
 try:
+    # This is the corrected config that worked
     llm = ChatOpenAI(
-    model_name="shivaay",
-    api_key=api_key,
-    base_url=base_url
-)
+        model_name="shivaay",
+        api_key=api_key,
+        base_url=base_url
+    )
     print("✅ Shivaay LLM client initialized successfully!")
 except Exception as e:
     print(f"❌ ERROR initializing LLM: {e}")
     llm = None
 
-# --- 3. Initialize FastAPI App ---
+# --- 4. Initialize FastAPI App ---
 app = FastAPI(
     title="Aasha AI Service",
     description="This service runs all AI agents for the Aasha Healthcare app."
 )
 
-# --- 4. Define the "API Contract" (Request/Response Models) ---
+# --- 5. Define the "API Contract" (Request/Response Models) ---
 
 # For the Symptom Analyzer
 class SymptomRequest(BaseModel):
@@ -66,39 +69,51 @@ class ReminderResponse(BaseModel):
     status: str
     scheduled_time: str
 
-# --- 5. Create Placeholder API Endpoints ---
+# --- 6. Create API Endpoints ---
 
 @app.get("/")
 def read_root():
     """Health check endpoint to see if the server is running."""
     return {"status": "Aasha AI Service is running!"}
 
+
+# === THIS IS YOUR NEW, UPDATED ENDPOINT ===
 @app.post("/api/v1/agents/analyze-symptoms", response_model=SymptomResponse)
 async def analyze_symptoms(request: SymptomRequest):
     """
     (Agent 1) Takes user symptoms and returns an analysis.
-    This is where your LangGraph agent will go.
+    This now calls our real LangGraph agent.
     """
-    print(f"Received symptoms: {request.symptom_text}")
+    print(f"Calling LangGraph agent with symptoms: {request.symptom_text}")
     
-    # TODO: Replace this with your LangGraph agent logic
+    # 1. Prepare the input for the graph
+    # We pass the symptom_text from the API request
+    inputs = {"symptom_text": request.symptom_text}
     
+    # 2. Run the graph
+    # We use .invoke() here for a single, final answer
+    final_state = symptom_agent_app.invoke(inputs)
+    
+    # 3. Return the final state
+    # We safely get the keys from the state dictionary
     return SymptomResponse(
-        analysis=f"Placeholder analysis for: {request.symptom_text}",
-        suggested_specialty="General Physician"
+        analysis=final_state.get("analysis", "Error in analysis"),
+        suggested_specialty=final_state.get("suggested_specialty", "Error in analysis")
     )
 
+
+# === THIS IS YOUR WORKING SUMMARY ENDPOINT ===
 @app.post("/api/v1/agents/summarize-report", response_model=ReportResponse)
 async def summarize_report(request: ReportRequest):
     """
     (Agent 2) Takes scrubbed medical text and summarizes it simply.
-    This is your RAG agent.
+    This is your working RAG agent.
     """
     if not llm:
         return ReportResponse(simple_summary="Error: LLM not initialized")
     
     try:
-        # This is a simple test of your LLM!
+        # This is the working test of your LLM
         prompt = f"""
         You are 'Aasha', a helpful medical assistant.
         Explain the following medical report text to a patient in simple, non-medical language.
@@ -116,6 +131,7 @@ async def summarize_report(request: ReportRequest):
         return ReportResponse(simple_summary=f"Error summarizing: {e}")
 
 
+# === THIS IS YOUR PLACEHOLDER REMINDER ENDPOINT ===
 @app.post("/api/v1/agents/schedule-reminder", response_model=ReminderResponse)
 async def schedule_reminder(request: ReminderRequest):
     """
@@ -131,7 +147,7 @@ async def schedule_reminder(request: ReminderRequest):
         scheduled_time="19:00" # Placeholder
     )
 
-# --- 6. Run the Server ---
+# --- 7. Run the Server ---
 if __name__ == "__main__":
     """This allows you to run the server by typing `python main.py`"""
     uvicorn.run(app, host="0.0.0.0", port=8000)
