@@ -1,6 +1,10 @@
 "use client";
-import { cn } from "../lib/utils";
 import React, { ReactNode } from "react";
+
+// local cn helper to avoid broken import paths during integration
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
 
 interface AuroraBackgroundProps extends React.HTMLProps<HTMLDivElement> {
   children: ReactNode;
@@ -17,12 +21,13 @@ export const AuroraBackground = ({
     <main>
       <div
         className={cn(
-          "relative flex flex-col  h-[100vh] items-center justify-center bg-zinc-50 dark:bg-zinc-900  text-slate-950 transition-bg",
+          // use min-h-screen so content can grow and not be clipped; keep overflow-visible so large children are not cut
+          "relative flex flex-col min-h-screen items-start md:items-center justify-start md:justify-center bg-zinc-50 dark:bg-zinc-900 text-slate-950 transition-bg overflow-visible",
           className
         )}
         {...props}
       >
-        <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div
             className={cn(
               `
@@ -38,14 +43,13 @@ export const AuroraBackground = ({
             after:dark:[background-image:var(--dark-gradient),var(--aurora)]
             after:[background-size:200%,_100%] 
             after:animate-aurora after:[background-attachment:fixed] after:mix-blend-difference
-            pointer-events-none
             absolute -inset-[10px] opacity-50 will-change-transform`,
-
               showRadialGradient &&
                 `[mask-image:radial-gradient(ellipse_at_100%_0%,black_10%,var(--transparent)_70%)]`
             )}
-          ></div>
+          />
         </div>
+
         {children}
       </div>
     </main>
