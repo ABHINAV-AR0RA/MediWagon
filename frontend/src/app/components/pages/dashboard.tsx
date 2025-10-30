@@ -29,12 +29,18 @@ interface DashboardProps {
   onProfileClick?: () => void;
 }
 
+interface SymptomAnalysisResponse {
+  analysis: string;
+  suggested_specialty: string;
+}
+
 interface Message {
   id: string;
   text: string;
   sender: "user" | "assistant";
   audioUrl?: string;
   isLoading?: boolean;
+  isAnalyzing?: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -72,6 +78,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   }, [transcript, speechIsListening]);
 
+  const analyzeSymptoms = async (text: string) => {
+    try {
+      const response = await fetch(
+        "https://mediwagon.onrender.com/api/v1/agents/analyze-symptoms",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            session_id: "session" + Date.now(),
+            symptom_text: text,
+            user_lat: 28.6139, // You might want to get actual user location
+            user_lon: 77.209,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: SymptomAnalysisResponse = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error analyzing symptoms:", error);
+      throw error;
+    }
+  };
+
   const handleVoiceInput = async (text: string) => {
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -79,16 +115,57 @@ export const Dashboard: React.FC<DashboardProps> = ({
       sender: "user",
     };
 
-    // Add a loading message immediately
-    const loadingMessage: Message = {
+    const analysisMessage: Message = {
       id: (Date.now() + 1).toString(),
+      text: "Analyzing your symptoms...",
+      sender: "assistant",
+      isAnalyzing: true,
+    };
+
+    setMessages((prev) => [...prev, userMessage, analysisMessage]);
+    setInputText("");
+
+    try {
+      const analysis = await analyzeSymptoms(text);
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.isAnalyzing
+            ? {
+                id: msg.id,
+                text: analysis.analysis,
+                sender: "assistant",
+              }
+            : msg
+        )
+      );
+
+      // Continue with voice processing
+      handleVoiceProcessing(text);
+    } catch (error) {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.isAnalyzing
+            ? {
+                id: msg.id,
+                text: "Sorry, I couldn't analyze your symptoms. Please try again.",
+                sender: "assistant",
+              }
+            : msg
+        )
+      );
+    }
+  };
+
+  const handleVoiceProcessing = async (text: string) => {
+    const loadingMessage: Message = {
+      id: (Date.now() + 2).toString(),
       text: "Processing your request...",
       sender: "assistant",
       isLoading: true,
     };
 
-    setMessages((prev) => [...prev, userMessage, loadingMessage]);
-    setInputText("");
+    setMessages((prev) => [...prev, loadingMessage]);
     setProcessingBackend(true);
 
     try {
@@ -240,26 +317,52 @@ export const Dashboard: React.FC<DashboardProps> = ({
     },
   ];
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputText.trim()) return;
 
-    const newMessage: Message = {
+    const userMessage: Message = {
       id: Date.now().toString(),
       text: inputText,
       sender: "user",
     };
 
-    setMessages([...messages, newMessage]);
+    const analysisMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      text: "Analyzing your symptoms...",
+      sender: "assistant",
+      isAnalyzing: true,
+    };
+
+    setMessages((prev) => [...prev, userMessage, analysisMessage]);
     setInputText("");
 
-    setTimeout(() => {
-      const response: Message = {
-        id: (Date.now() + 1).toString(),
-        text: "I understand. Based on your symptoms, I recommend booking an appointment with a general physician. Would you like me to help you find one nearby?",
-        sender: "assistant",
-      };
-      setMessages((prev) => [...prev, response]);
-    }, 1000);
+    try {
+      const analysis = await analyzeSymptoms(inputText);
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.isAnalyzing
+            ? {
+                id: msg.id,
+                text: analysis.analysis,
+                sender: "assistant",
+              }
+            : msg
+        )
+      );
+    } catch (error) {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.isAnalyzing
+            ? {
+                id: msg.id,
+                text: "Sorry, I couldn't analyze your symptoms. Please try again.",
+                sender: "assistant",
+              }
+            : msg
+        )
+      );
+    }
   };
 
   const handleQuickSymptom = (symptom: string) => {

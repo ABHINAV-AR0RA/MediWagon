@@ -1,13 +1,33 @@
-import React, { useState } from 'react';
-import { Navbar } from '../navbar';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Badge } from '../ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { ChevronLeft, Plus, Pill, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useState } from "react";
+import { Navbar } from "../navbar";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Badge } from "../ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../ui/dialog";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import {
+  ChevronLeft,
+  Plus,
+  Pill,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  X,
+} from "lucide-react";
 
 interface MedicationsProps {
   isDark: boolean;
@@ -28,45 +48,61 @@ interface Medication {
   color: string;
 }
 
-export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, onBack, onLogoClick, onLogout, onProfileClick }) => {
-  const [medications, setMedications] = useState<Medication[]>([
-    {
-      id: 1,
-      name: 'Amoxicillin',
-      dosage: '500mg',
-      frequency: '3 times daily',
-      time: '8:00 AM',
-      taken: true,
-      color: 'bg-blue-500'
-    },
-    {
-      id: 2,
-      name: 'Vitamin D',
-      dosage: '1000 IU',
-      frequency: 'Once daily',
-      time: '9:00 AM',
-      taken: true,
-      color: 'bg-yellow-500'
-    },
-    {
-      id: 3,
-      name: 'Metformin',
-      dosage: '850mg',
-      frequency: 'Twice daily',
-      time: '7:00 PM',
-      taken: false,
-      color: 'bg-green-500'
-    },
-    {
-      id: 4,
-      name: 'Aspirin',
-      dosage: '75mg',
-      frequency: 'Once daily',
-      time: '10:00 PM',
-      taken: false,
-      color: 'bg-red-500'
-    }
-  ]);
+export const Medications: React.FC<MedicationsProps> = ({
+  isDark,
+  toggleTheme,
+  onBack,
+  onLogoClick,
+  onLogout,
+  onProfileClick,
+}) => {
+  const [medications, setMedications] = useState<Medication[]>(() => {
+    const savedMeds = localStorage.getItem("medications");
+    return savedMeds
+      ? JSON.parse(savedMeds)
+      : [
+          {
+            id: 1,
+            name: "Amoxicillin",
+            dosage: "500mg",
+            frequency: "3 times daily",
+            time: "8:00 AM",
+            taken: true,
+            color: "bg-blue-500",
+          },
+          {
+            id: 2,
+            name: "Vitamin D",
+            dosage: "1000 IU",
+            frequency: "Once daily",
+            time: "9:00 AM",
+            taken: true,
+            color: "bg-yellow-500",
+          },
+          {
+            id: 3,
+            name: "Metformin",
+            dosage: "850mg",
+            frequency: "Twice daily",
+            time: "7:00 PM",
+            taken: false,
+            color: "bg-green-500",
+          },
+          {
+            id: 4,
+            name: "Aspirin",
+            dosage: "75mg",
+            frequency: "Once daily",
+            time: "10:00 PM",
+            taken: false,
+            color: "bg-red-500",
+          },
+        ];
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem("medications", JSON.stringify(medications));
+  }, [medications]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -82,27 +118,49 @@ export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, o
 
   const handleAddMedication = (e: React.FormEvent) => {
     e.preventDefault();
-    // Add new medication logic here
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+
+    const newMedication: Medication = {
+      id: Math.max(0, ...medications.map((m) => m.id)) + 1,
+      name: formData.get("med-name") as string,
+      dosage: formData.get("dosage") as string,
+      frequency: formData.get("frequency") as string,
+      time: formData.get("time") as string,
+      taken: false,
+      color: `bg-${
+        ["blue", "green", "yellow", "red", "purple"][
+          Math.floor(Math.random() * 5)
+        ]
+      }-500`,
+    };
+
+    setMedications((prev) => [...prev, newMedication]);
     setIsDialogOpen(false);
+    form.reset();
+  };
+
+  const deleteMedication = (id: number) => {
+    setMedications((prev) => prev.filter((med) => med.id !== id));
   };
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar 
-        isDark={isDark} 
-        toggleTheme={toggleTheme} 
-        userName="Gayathri" 
+      <Navbar
+        isDark={isDark}
+        toggleTheme={toggleTheme}
+        userName="Gayathri"
         onLogoClick={onLogoClick}
         onLogout={onLogout}
         onProfileClick={onProfileClick}
       />
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onBack}
               className="rounded-2xl"
             >
@@ -110,10 +168,12 @@ export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, o
             </Button>
             <div>
               <h2>Medication Reminders</h2>
-              <p className="text-muted-foreground">Track and manage your medications</p>
+              <p className="text-muted-foreground">
+                Track and manage your medications
+              </p>
             </div>
           </div>
-          
+
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="rounded-2xl gap-2">
@@ -130,6 +190,7 @@ export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, o
                   <Label htmlFor="med-name">Medicine Name</Label>
                   <Input
                     id="med-name"
+                    name="med-name"
                     placeholder="e.g., Amoxicillin"
                     className="rounded-2xl"
                     required
@@ -139,6 +200,7 @@ export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, o
                   <Label htmlFor="dosage">Dosage</Label>
                   <Input
                     id="dosage"
+                    name="dosage"
                     placeholder="e.g., 500mg"
                     className="rounded-2xl"
                     required
@@ -146,15 +208,19 @@ export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, o
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="frequency">Frequency</Label>
-                  <Select>
+                  <Select name="frequency">
                     <SelectTrigger className="rounded-2xl">
                       <SelectValue placeholder="Select frequency" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="once">Once daily</SelectItem>
-                      <SelectItem value="twice">Twice daily</SelectItem>
-                      <SelectItem value="thrice">3 times daily</SelectItem>
-                      <SelectItem value="four">4 times daily</SelectItem>
+                      <SelectItem value="Once daily">Once daily</SelectItem>
+                      <SelectItem value="Twice daily">Twice daily</SelectItem>
+                      <SelectItem value="3 times daily">
+                        3 times daily
+                      </SelectItem>
+                      <SelectItem value="4 times daily">
+                        4 times daily
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -162,6 +228,7 @@ export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, o
                   <Label htmlFor="time">Time</Label>
                   <Input
                     id="time"
+                    name="time"
                     type="time"
                     className="rounded-2xl"
                     required
@@ -183,7 +250,9 @@ export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, o
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4">
-                      <div className={`w-16 h-16 rounded-2xl ${upcomingMedication.color} flex items-center justify-center shadow-lg`}>
+                      <div
+                        className={`w-16 h-16 rounded-2xl ${upcomingMedication.color} flex items-center justify-center shadow-lg`}
+                      >
                         <Pill className="w-8 h-8 text-white" />
                       </div>
                       <div>
@@ -192,13 +261,19 @@ export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, o
                             Next Reminder
                           </Badge>
                         </div>
-                        <h3 className="mb-1">Hey Gayathri, it's time for your medicine!</h3>
+                        <h3 className="mb-1">
+                          Hey Gayathri, it's time for your medicine!
+                        </h3>
                         <p className="text-muted-foreground mb-3">
-                          Take {upcomingMedication.name} {upcomingMedication.dosage} at {upcomingMedication.time}
+                          Take {upcomingMedication.name}{" "}
+                          {upcomingMedication.dosage} at{" "}
+                          {upcomingMedication.time}
                         </p>
-                        <Button 
+                        <Button
                           className="rounded-2xl"
-                          onClick={() => toggleMedicationStatus(upcomingMedication.id)}
+                          onClick={() =>
+                            toggleMedicationStatus(upcomingMedication.id)
+                          }
                         >
                           <CheckCircle2 className="w-4 h-4 mr-2" />
                           Mark as Taken
@@ -223,7 +298,11 @@ export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, o
                   <div key={medication.id} className="flex items-start gap-4">
                     {/* Timeline */}
                     <div className="flex flex-col items-center">
-                      <div className={`w-10 h-10 rounded-full ${medication.taken ? 'bg-primary' : 'bg-secondary'} flex items-center justify-center`}>
+                      <div
+                        className={`w-10 h-10 rounded-full ${
+                          medication.taken ? "bg-primary" : "bg-secondary"
+                        } flex items-center justify-center`}
+                      >
                         {medication.taken ? (
                           <CheckCircle2 className="w-5 h-5 text-white" />
                         ) : (
@@ -236,24 +315,43 @@ export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, o
                     </div>
 
                     {/* Medication Card */}
-                    <div className={`flex-1 p-4 rounded-2xl transition-all ${
-                      medication.taken 
-                        ? 'bg-secondary/30 opacity-60' 
-                        : 'bg-secondary/50 hover:bg-secondary'
-                    }`}>
+                    <div
+                      className={`flex-1 p-4 rounded-2xl transition-all relative ${
+                        medication.taken
+                          ? "bg-secondary/30 opacity-60"
+                          : "bg-secondary/50 hover:bg-secondary"
+                      }`}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-2 right-2 h-6 w-6 rounded-full hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteMedication(medication.id);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-full ${medication.color}`} />
+                          <div
+                            className={`w-3 h-3 rounded-full ${medication.color}`}
+                          />
                           <div>
                             <h4>{medication.name}</h4>
-                            <p className="text-muted-foreground">{medication.dosage}</p>
+                            <p className="text-muted-foreground">
+                              {medication.dosage}
+                            </p>
                           </div>
                         </div>
                         <Badge variant="outline" className="rounded-full">
                           {medication.time}
                         </Badge>
                       </div>
-                      <p className="text-muted-foreground mb-3">{medication.frequency}</p>
+                      <p className="text-muted-foreground mb-3">
+                        {medication.frequency}
+                      </p>
                       {!medication.taken && (
                         <Button
                           size="sm"
@@ -287,7 +385,8 @@ export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, o
                 <div className="w-32 h-32 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4">
                   <div className="text-center">
                     <div className="text-primary">
-                      {medications.filter(m => m.taken).length}/{medications.length}
+                      {medications.filter((m) => m.taken).length}/
+                      {medications.length}
                     </div>
                     <p className="text-muted-foreground">Taken</p>
                   </div>
@@ -296,7 +395,11 @@ export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, o
                   <div
                     className="bg-primary h-3 rounded-full transition-all"
                     style={{
-                      width: `${(medications.filter(m => m.taken).length / medications.length) * 100}%`
+                      width: `${
+                        (medications.filter((m) => m.taken).length /
+                          medications.length) *
+                        100
+                      }%`,
                     }}
                   />
                 </div>
@@ -305,11 +408,15 @@ export const Medications: React.FC<MedicationsProps> = ({ isDark, toggleTheme, o
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30">
                   <span className="text-muted-foreground">Completed</span>
-                  <span className="text-primary">{medications.filter(m => m.taken).length}</span>
+                  <span className="text-primary">
+                    {medications.filter((m) => m.taken).length}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30">
                   <span className="text-muted-foreground">Pending</span>
-                  <span className="text-orange-500">{medications.filter(m => !m.taken).length}</span>
+                  <span className="text-orange-500">
+                    {medications.filter((m) => !m.taken).length}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30">
                   <span className="text-muted-foreground">Total</span>
