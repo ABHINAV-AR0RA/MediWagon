@@ -7,9 +7,11 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 import uvicorn
 from typing import List
+import requests # <-- 1. NEW IMPORT
 
-# --- 1. Import Your Agent ---
+# --- 1. Import Your Agents ---
 from symptom_agent import app as symptom_agent_app 
+from reminder_agent import app as reminder_agent_app
 
 # --- 2. Load Environment Variables ---
 load_dotenv()
@@ -35,11 +37,10 @@ app = FastAPI(
 )
 
 # --- 5. HACKATHON MEMORY (Simple Dictionary) ---
-# This will store chat histories by session_id
 chat_memory = {}
 
 # --- 6. Define the "API Contract" (Request/Response Models) ---
-
+# (All models are correct, no changes needed)
 class SymptomRequest(BaseModel):
     session_id: str
     symptom_text: str
@@ -56,12 +57,13 @@ class ReportResponse(BaseModel):
 
 class ReminderRequest(BaseModel):
     medication: str
-    time_text: str 
+    time_text: str
     user_id: str
 
 class ReminderResponse(BaseModel):
     status: str
-    scheduled_time: str
+    parsed_time: str
+    medication: str
 
 # --- 7. Create API Endpoints ---
 
@@ -72,40 +74,29 @@ def read_root():
 
 @app.post("/api/v1/agents/analyze-symptoms", response_model=SymptomResponse)
 async def analyze_symptoms(request: SymptomRequest):
-    """
-    (Agent 1) This is now a STATEFUL endpoint.
-    It remembers the conversation.
-    """
+    # (Agent 1) This is your working stateful agent
     print(f"[{request.session_id}] Received symptoms: {request.symptom_text}")
-    
-    # 1. Get history or start a new list
-    # We use .copy() to avoid issues
     current_messages = chat_memory.get(request.session_id, []).copy()
-    
-    # 2. Add the new user message to the history
     current_messages.append(request.symptom_text)
 
-    # 3. Prepare the input for the agent
     inputs = {
-        "messages": current_messages
+        "messages": current_messages,
+        "analysis": "",
+        "suggested_specialty": "",
+        "router_decision": ""
     }
     
-    # 4. Run the graph
     print(f"[{request.session_id}] Calling agent with history: {inputs}")
     final_state = symptom_agent_app.invoke(inputs)
     
-    # 5. Get the agent's response
     aasha_response = final_state.get("analysis", "Error in analysis")
     specialty = final_state.get("suggested_specialty", "Error")
     
-    # 6. Save the new history
-    # Add Aasha's response to the history for next time
     current_messages.append(aasha_response)
     chat_memory[request.session_id] = current_messages
     
     print(f"[{request.session_id}] Full History: {chat_memory[request.session_id]}")
     
-    # 7. Return the *latest* response
     return SymptomResponse(
         analysis=aasha_response,
         suggested_specialty=specialty
@@ -114,7 +105,7 @@ async def analyze_symptoms(request: SymptomRequest):
 
 @app.post("/api/v1/agents/summarize-report", response_model=ReportResponse)
 async def summarize_report(request: ReportRequest):
-    # (Agent 2) This remains unchanged
+    # (Agent 2) This is your working summarizer
     if not llm:
         return ReportResponse(simple_summary="Error: LLM not initialized")
     try:
@@ -132,11 +123,48 @@ async def summarize_report(request: ReportRequest):
 
 @app.post("/api/v1/agents/schedule-reminder", response_model=ReminderResponse)
 async def schedule_reminder(request: ReminderRequest):
-    # (Agent 3) This remains unchanged
+    """
+    (Agent 3) This now calls the agent AND calls the backend.
+    """
     print(f"Received reminder for {request.user_id}: {request.medication} at {request.time_text}")
+    
+    inputs = {"medication": request.medication, "time_text": request.time_text}
+    
+    final_state = reminder_agent_app.invoke(inputs)
+    parsed_time = final_state.get("parsed_time", "Error")
+    
+    print(f"Parsed time: {parsed_time}")
+    
+    # --- 2. THIS IS THE FINAL STEP ---
+    # Call your Node.js backend to save the reminder
+    # Ask your backend team for their URL (it's probably http://localhost:3001/api/reminders)
+    BACKEND_URL = "http://localhost:3001/api/reminders" # Change this to your team's URL
+    
+    try:
+        api_call_payload = {
+            "userId": request.user_id,
+            "medicationName": request.medication,
+            "time": parsed_time # The smart, parsed time
+        }
+        
+        # This sends the data to your Node.js backend
+        response = requests.post(BACKEND_URL, json=api_call_payload)
+        
+        if response.status_code == 200 or response.status_code == 201:
+            print("Successfully sent reminder to backend.")
+            status = "scheduled_success"
+        else:
+            print(f"Backend error: {response.text}")
+            status = "backend_error"
+            
+    except Exception as e:
+        print(f"---ERROR: FAILED TO CALL BACKEND: {e}---")
+        status = "ai_error_calling_backend"
+    
     return ReminderResponse(
-        status="scheduled_placeholder",
-        scheduled_time="19:00"
+        status=status,
+        parsed_time=parsed_time,
+        medication=request.medication
     )
 
 # --- 8. Run the Server ---
