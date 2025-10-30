@@ -4,12 +4,13 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, END
-from typing import TypedDict, Annotated, List, Literal
+from typing import TypedDict, Annotated, List, Literal, Optional # <-- Import Optional
 import operator
 import json
 from langchain_openai import ChatOpenAI
 import os
 from dotenv import load_dotenv
+from math import radians, cos, sin, asin, sqrt
 
 # --- 1. Load LLM ---
 load_dotenv()
@@ -22,20 +23,35 @@ llm = ChatOpenAI(
     base_url=base_url
 )
 
-# --- 2. Define Agent State ---
+# --- 2. Define Helper Function for Distance ---
+def calculate_distance(lat1, lon1, lat2, lon2):
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+    dlon = lon2 - lon1 
+    dlat = lat2 - lat1 
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a)) 
+    r = 6371
+    return c * r
+
+# --- 3. Define Agent State (with Optional Location) ---
 class AgentState(TypedDict):
     messages: Annotated[List[str], operator.add]
+    # --- THIS IS THE FIX ---
+    # Location fields are now Optional
+    user_lat: Optional[float]
+    user_lon: Optional[float]
+    
     analysis: str
     suggested_specialty: str
     router_decision: str 
 
-# --- 3. Define Agent Nodes (Functions) ---
+# --- 4. Define Agent Nodes (Functions) ---
 
 def analyze_symptoms(state: AgentState):
     """
-    Node 1: Analyzes symptoms, queries the JSON, and proactively hands off to booking.
+    Node 1: Analyzes symptoms, and if location is provided, finds the nearest doctor.
     """
-    print("---NODE: ANALYZE_SYMPTOMS (SMART HAND-OFF)---")
+    print("---NODE: ANALYZE_SYMPTOMS (FAULT-TOLERANT)---")
     
     analysis_prompt_template = """
     You are a medical triage assistant. Your first job is to analyze the user's symptoms
@@ -67,6 +83,8 @@ def analyze_symptoms(state: AgentState):
         if not specialty:
             raise Exception("LLM failed to provide a specialty.")
 
+        # --- Part 2: Location-Aware Doctor Query ---
+        
         print(f"Querying JSON for specialty: {specialty}")
         with open('doctors.json', 'r') as f:
             doctors_db = json.load(f)
@@ -74,20 +92,54 @@ def analyze_symptoms(state: AgentState):
         relevant_doctors = [doc for doc in doctors_db if doc["specialty"].lower() == specialty.lower()]
         
         if not relevant_doctors:
+            # No doctors found for this specialty at all
             final_response_message = (
                 f"{analysis} "
                 f"Based on this, I recommend you see a **{specialty}**. "
                 f"Please head to the 'Schedule Appointment' section to see available doctors."
             )
         else:
-            best_doctor = max(relevant_doctors, key=lambda doc: doc["rating"])
+            # --- THIS IS THE SAFETY CHECK ---
+            user_lat = state.get('user_lat')
+            user_lon = state.get('user_lon')
             
-            final_response_message = (
-                f"{analysis} "
-                f"Based on this, I recommend you see a **{specialty}**. "
-                f"The top-rated specialist in your area is **{best_doctor['name']} ({best_doctor['rating']} stars)**, with availability {best_doctor['next_slot']}. "
-                f"\n\n**Please go to the 'Schedule Appointment' section on your dashboard to book this.**"
-            )
+            if user_lat and user_lon:
+                # --- A. LOCATION WAS PROVIDED ---
+                print(f"Location provided: ({user_lat}, {user_lon}). Finding nearest.")
+                nearby_doctors = []
+                for doc in relevant_doctors:
+                    distance = calculate_distance(user_lat, user_lon, doc['lat'], doc['lon'])
+                    if distance <= 10: # 10km radius
+                        doc['distance'] = round(distance, 1)
+                        nearby_doctors.append(doc)
+                
+                if nearby_doctors:
+                    best_doctor = max(nearby_doctors, key=lambda doc: doc["rating"])
+                    final_response_message = (
+                        f"{analysis} "
+                        f"Based on this, I recommend you see a **{specialty}**. "
+                        f"The top-rated specialist *near you* (approx. **{best_doctor['distance']} km** away) is **{best_doctor['name']} ({best_doctor['rating']} stars)**, with availability {best_doctor['next_slot']}. "
+                        f"\n\n**Please go to the 'Schedule Appointment' section on your dashboard to book this.**"
+                    )
+                else:
+                    # No doctors found within 10km
+                    final_response_message = (
+                        f"{analysis} "
+                        f"Based on this, I recommend you see a **{specialty}**. "
+                        f"Unfortunately, I couldn't find any specialists within a 10km radius. "
+                        f"Please head to the 'Schedule Appointment' section to see all available doctors."
+                    )
+            else:
+                # --- B. NO LOCATION PROVIDED ---
+                print("No location provided by frontend. Finding top-rated doctor instead.")
+                best_doctor = max(relevant_doctors, key=lambda doc: doc["rating"])
+                final_response_message = (
+                    f"{analysis} "
+                    f"Based on this, I recommend you see a **{specialty}**. "
+                    f"The top-rated specialist in your area is **{best_doctor['name']} ({best_doctor['rating']} stars)**, with availability {best_doctor['next_slot']}. "
+                    f"\n\n(We couldn't get your location to find the *nearest* doctor.)"
+                    f"\n\n**Please go to the 'Schedule Appointment' section on your dashboard to book this.**"
+                )
 
         return {
             "analysis": final_response_message,
@@ -102,6 +154,7 @@ def analyze_symptoms(state: AgentState):
             "suggested_specialty": "Error",
         }
 
+# ... (keep clarify_symptoms, route_symptoms, should_analyze, and the graph build)
 def clarify_symptoms(state: AgentState):
     """
     Node 2: If symptoms are vague, this asks a follow-up question.
@@ -132,12 +185,9 @@ def clarify_symptoms(state: AgentState):
             "messages": ["Error in clarify node."]
         }
 
-# --- 4. Define the Router (FINAL, SMARTER VERSION) ---
-
 def route_symptoms(state: AgentState):
     """
-    Node 3: (The Router) This node RUNS, makes a decision,
-    and returns a DICTIONARY to save that decision to the state.
+    Node 3: (The Router) Decides whether to analyze or clarify.
     """
     print("---NODE: ROUTE_SYMPTOMS---")
     
@@ -167,8 +217,6 @@ def route_symptoms(state: AgentState):
         print(f"---ERROR IN ROUTER: {e}---")
         return {"router_decision": "clarify_symptoms"}
 
-# --- 5. Define the Conditional Edge ---
-
 def should_analyze(state: AgentState) -> Literal["analyze_symptoms", "clarify_symptoms"]:
     """
     This is the Condition function. It just reads the router's decision.
@@ -180,16 +228,11 @@ def should_analyze(state: AgentState) -> Literal["analyze_symptoms", "clarify_sy
     else:
         return "clarify_symptoms"
 
-# --- 6. Build the New Graph ---
-
 workflow = StateGraph(AgentState)
-
 workflow.add_node("route_symptoms", route_symptoms)
 workflow.add_node("analyze_symptoms", analyze_symptoms)
 workflow.add_node("clarify_symptoms", clarify_symptoms)
-
 workflow.set_entry_point("route_symptoms")
-
 workflow.add_conditional_edges(
     "route_symptoms",
     should_analyze,
@@ -198,8 +241,6 @@ workflow.add_conditional_edges(
         "clarify_symptoms": "clarify_symptoms"
     }
 )
-
 workflow.add_edge("analyze_symptoms", END)
 workflow.add_edge("clarify_symptoms", END)
-
 app = workflow.compile()
