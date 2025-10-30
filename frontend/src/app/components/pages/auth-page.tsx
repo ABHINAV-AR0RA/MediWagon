@@ -12,14 +12,21 @@ import {
 } from "../ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
+// ADDED: API imports (removed useNavigate)
+import {
+  registerUser,
+  loginUser,
+  RegisterData,
+  LoginData,
+  LoginResponse,
+} from "../../../api/auth";
+
 interface AuthPageProps {
   onAuth: () => void;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
   const [isLoading, setIsLoading] = useState(false);
-
-  // Track active tab to separate handling for signin/signup
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
 
   // Sign-in state
@@ -51,6 +58,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
     confirm?: string;
   }>({});
 
+  // ADDED: API feedback + navigation state
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiMessage, setApiMessage] = useState<string | null>(null);
+
   // Basic validators
   const validateEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
   const validatePhone = (value: string) => /^\d{10,15}$/.test(value); // 10-15 digits
@@ -78,14 +89,28 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSignInSubmit = (e: React.FormEvent) => {
+  // UPDATED: Sign-in submit — calls loginUser
+  const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setApiError(null);
+    setApiMessage(null);
     if (!handleSigninValidate()) return;
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const payload: LoginData = {
+        email: signinEmail,
+        password: signinPassword,
+      };
+      const resp: LoginResponse = await loginUser(payload);
+      // On successful login, call parent handler to navigate to dashboard
       setIsLoading(false);
       onAuth();
-    }, 1500);
+      // Optionally store token / user in localStorage here for future use
+      // localStorage.setItem("token", resp.token);
+    } catch (err) {
+      setIsLoading(false);
+      setApiError(err instanceof Error ? err.message : "Login failed");
+    }
   };
 
   // Add age calculation function
@@ -127,14 +152,33 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSignUpSubmit = (e: React.FormEvent) => {
+  // UPDATED: Sign-up submit — calls registerUser and switches to Sign In tab on success
+  const handleSignUpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setApiError(null);
+    setApiMessage(null);
     if (!handleSignupValidate()) return;
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const regAge = age ?? calculateAge(dob);
+      const payload: RegisterData = {
+        name: name.trim(),
+        email: signupEmail,
+        password: signupPassword,
+        age: regAge,
+        address: address.trim(),
+        gender: gender ?? "other",
+        phone,
+      };
+      await registerUser(payload);
       setIsLoading(false);
-      onAuth();
-    }, 1500);
+      setApiMessage("Account created successfully. You can now sign in.");
+      // Instead of using a Router navigate, switch the active tab back to sign-in.
+      setActiveTab("signin");
+    } catch (err) {
+      setIsLoading(false);
+      setApiError(err instanceof Error ? err.message : "Registration failed");
+    }
   };
 
   // Determine if form is currently valid to enable button (basic)
@@ -170,6 +214,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
             <CardDescription>Sign in or create a new account</CardDescription>
           </CardHeader>
           <CardContent>
+            {/* API messages */}
+            {apiError && (
+              <div className="mb-4 text-sm text-red-600">{apiError}</div>
+            )}
+            {apiMessage && (
+              <div className="mb-4 text-sm text-green-600">{apiMessage}</div>
+            )}
+
             <Tabs
               defaultValue="signin"
               value={activeTab}
