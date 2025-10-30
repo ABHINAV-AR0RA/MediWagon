@@ -4,27 +4,35 @@
     "name": "Dr. Anil Sharma",
     "specialty": "Cardiologist",
     "rating": 4.9,
-    "next_slot": "Tomorrow at 10:00 AM"
+    "next_slot": "Tomorrow at 10:00 AM",
+    "lat": 26.9124,
+    "lon": 75.7873
   },
   {
     "id": "doc2",
     "name": "Dr. Priya Gupta",
     "specialty": "Cardiologist",
     "rating": 4.7,
-    "next_slot": "Tomorrow at 11:00 AM"
+    "next_slot": "Tomorrow at 11:00 AM",
+    "lat": 26.9150,
+    "lon": 75.7900
   },
   {
     "id": "doc3",
     "name": "Dr. Vikram Singh",
     "specialty": "General Physician",
     "rating": 4.8,
-    "next_slot": "Today at 4:00 PM"
+    "next_slot": "Today at 4:00 PM",
+    "lat": 26.8900,
+    "lon": 75.7800
   },
   {
-    "id": "doc4",
+    "id":"doc4",
     "name": "Dr. Sunita Reddy",
     "specialty": "Dermatologist",
     "rating": 4.9,
-    "next_slot": "Tomorrow at 9:00 AM"
+    "next_slot": "Tomorrow at 9:00 AM",
+    "lat": 26.9000,
+    "lon": 75.8000
   }
 ]

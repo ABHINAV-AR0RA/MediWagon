@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 import uvicorn
 from typing import List
-import requests # <-- 1. NEW IMPORT
+import requests
+from typing import List, Optional
 
 # --- 1. Import Your Agents ---
 from symptom_agent import app as symptom_agent_app 
@@ -39,11 +40,13 @@ app = FastAPI(
 # --- 5. HACKATHON MEMORY (Simple Dictionary) ---
 chat_memory = {}
 
-# --- 6. Define the "API Contract" (Request/Response Models) ---
-# (All models are correct, no changes needed)
+# --- 6. Define the "API Contract" (Models) ---
+
 class SymptomRequest(BaseModel):
     session_id: str
     symptom_text: str
+    user_lat: Optional[float] = None
+    user_lon: Optional[float] = None
 
 class SymptomResponse(BaseModel):
     analysis: str
@@ -72,21 +75,27 @@ def read_root():
     return {"status": "Aasha AI Service is running!"}
 
 
+# === THIS IS THE UPGRADED, FAULT-TOLERANT ENDPOINT ===
 @app.post("/api/v1/agents/analyze-symptoms", response_model=SymptomResponse)
 async def analyze_symptoms(request: SymptomRequest):
-    # (Agent 1) This is your working stateful agent
+    """
+    (Agent 1) This is now a STATEFUL & FAULT-TOLERANT endpoint.
+    """
     print(f"[{request.session_id}] Received symptoms: {request.symptom_text}")
     current_messages = chat_memory.get(request.session_id, []).copy()
     current_messages.append(request.symptom_text)
 
+    # We now pass the location, which might be None
     inputs = {
         "messages": current_messages,
+        "user_lat": request.user_lat,
+        "user_lon": request.user_lon,
         "analysis": "",
         "suggested_specialty": "",
         "router_decision": ""
     }
     
-    print(f"[{request.session_id}] Calling agent with history: {inputs}")
+    print(f"[{request.session_id}] Calling agent with: {inputs}")
     final_state = symptom_agent_app.invoke(inputs)
     
     aasha_response = final_state.get("analysis", "Error in analysis")
@@ -95,13 +104,10 @@ async def analyze_symptoms(request: SymptomRequest):
     current_messages.append(aasha_response)
     chat_memory[request.session_id] = current_messages
     
-    print(f"[{request.session_id}] Full History: {chat_memory[request.session_id]}")
-    
     return SymptomResponse(
         analysis=aasha_response,
         suggested_specialty=specialty
     )
-
 
 @app.post("/api/v1/agents/summarize-report", response_model=ReportResponse)
 async def summarize_report(request: ReportRequest):
@@ -124,7 +130,7 @@ async def summarize_report(request: ReportRequest):
 @app.post("/api/v1/agents/schedule-reminder", response_model=ReminderResponse)
 async def schedule_reminder(request: ReminderRequest):
     """
-    (Agent 3) This now calls the agent AND calls the backend.
+    (Agent 3) This is your working reminder agent.
     """
     print(f"Received reminder for {request.user_id}: {request.medication} at {request.time_text}")
     
@@ -135,19 +141,15 @@ async def schedule_reminder(request: ReminderRequest):
     
     print(f"Parsed time: {parsed_time}")
     
-    # --- 2. THIS IS THE FINAL STEP ---
-    # Call your Node.js backend to save the reminder
-    # Ask your backend team for their URL (it's probably http://localhost:3001/api/reminders)
     BACKEND_URL = "http://localhost:3001/api/reminders" # Change this to your team's URL
     
     try:
         api_call_payload = {
             "userId": request.user_id,
             "medicationName": request.medication,
-            "time": parsed_time # The smart, parsed time
+            "time": parsed_time
         }
         
-        # This sends the data to your Node.js backend
         response = requests.post(BACKEND_URL, json=api_call_payload)
         
         if response.status_code == 200 or response.status_code == 201:
