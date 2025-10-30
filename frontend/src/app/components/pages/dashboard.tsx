@@ -58,7 +58,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isDark, toggleTheme, onNav
   const healthTasks = [
     {
       icon: <Calendar className="w-5 h-5" />,
-      title: 'Scheduled Appointments',
+      title: 'Schedule Appointments',
       count: '2 upcoming',
       color: 'bg-blue-500/10 text-blue-500',
       action: () => onNavigate('appointments')
