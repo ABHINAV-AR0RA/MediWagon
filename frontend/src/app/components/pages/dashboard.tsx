@@ -48,7 +48,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: "Hello Gayathri! I'm MediWagon. How are you feeling today?",
+      text: "Hello Gayathri! I'm Asha. How are you feeling today?",
       sender: "assistant",
     },
   ]);
@@ -286,7 +286,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="flex items-center gap-4">
                   <MediWagonAvatar size="sm" isListening={isListening} />
                   <div>
-                    <CardTitle>Talk to MediWagon</CardTitle>
+                    <CardTitle>Talk to Asha</CardTitle>
                     <p className="text-muted-foreground">
                       Your AI health assistant
                     </p>
