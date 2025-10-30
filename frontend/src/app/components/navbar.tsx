@@ -1,7 +1,16 @@
-import React from 'react';
-import { Bell, Moon, Sun, Heart, LogOut, User, Settings } from 'lucide-react';
-import { Button } from './ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import React from "react";
+import {
+  Bell,
+  Moon,
+  Sun,
+  Heart,
+  LogOut,
+  User,
+  Settings,
+  Ambulance,
+} from "lucide-react";
+import { Button } from "./ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +18,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from './ui/dropdown-menu';
+} from "./ui/dropdown-menu";
 
 interface NavbarProps {
   isDark: boolean;
@@ -20,19 +29,19 @@ interface NavbarProps {
   onProfileClick?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ 
-  isDark, 
-  toggleTheme, 
-  userName = 'Gayathri',
+export const Navbar: React.FC<NavbarProps> = ({
+  isDark,
+  toggleTheme,
+  userName = "Gayathri",
   onLogoClick,
   onLogout,
-  onProfileClick
+  onProfileClick,
 }) => {
   return (
     <nav className="w-full border-b border-border bg-card/80 backdrop-blur-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <button 
+          <button
             onClick={onLogoClick}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
@@ -43,22 +52,35 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <div className="flex items-center gap-3">
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="destructive"
+              className="rounded-full flex items-center gap-2"
+              onClick={() => (window.location.href = "tel:108")}
+            >
+              <Ambulance className="w-4 h-4" />
+              <span className="hidden sm:inline">Book Ambulance</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
               className="relative rounded-2xl hover:bg-secondary/80"
             >
               <Bell className="w-5 h-5" />
               <span className="absolute top-2 right-2 w-2 h-2 bg-accent rounded-full"></span>
             </Button>
 
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={toggleTheme}
               className="rounded-2xl hover:bg-secondary/80"
             >
-              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {isDark ? (
+                <Sun className="w-5 h-5" />
+              ) : (
+                <Moon className="w-5 h-5" />
+              )}
             </Button>
 
             <DropdownMenu>
@@ -74,16 +96,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <DropdownMenuLabel>
                   <div className="flex flex-col">
                     <span>{userName}</span>
-                    <span className="text-muted-foreground">user@mediwagon.com</span>
+                    <span className="text-muted-foreground">
+                      user@mediwagon.com
+                    </span>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onProfileClick} className="cursor-pointer">
+                <DropdownMenuItem
+                  onClick={onProfileClick}
+                  className="cursor-pointer"
+                >
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Profile Settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onLogout} className="cursor-pointer text-red-600 dark:text-red-400">
+                <DropdownMenuItem
+                  onClick={onLogout}
+                  className="cursor-pointer text-red-600 dark:text-red-400"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Logout</span>
                 </DropdownMenuItem>
