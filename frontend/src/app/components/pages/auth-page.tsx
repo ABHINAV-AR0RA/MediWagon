@@ -34,12 +34,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
   const [name, setName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [dob, setDob] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [signupErrors, setSignupErrors] = useState<{
     name?: string;
     email?: string;
     phone?: string;
+    dob?: string;
     password?: string;
     confirm?: string;
   }>({});
@@ -48,6 +50,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
   const validateEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
   const validatePhone = (value: string) => /^\d{10,15}$/.test(value); // 10-15 digits
   const validatePassword = (value: string) => value.length >= 8;
+  const validateDob = (value: string) => {
+    const date = new Date(value);
+    const today = new Date();
+    const minDate = new Date();
+    minDate.setFullYear(today.getFullYear() - 120); // Max age 120 years
+    const maxDate = new Date();
+    maxDate.setFullYear(today.getFullYear() - 13); // Min age 13 years
+    return date >= minDate && date <= maxDate;
+  };
 
   // Sign-in handlers
   const handleSigninValidate = () => {
@@ -80,8 +91,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
     else if (!validateEmail(signupEmail))
       errors.email = "Invalid email address.";
     if (!phone) errors.phone = "Phone number is required.";
-    else if (!validatePhone(phone))
-      errors.phone = "Phone must be 10 digits.";
+    else if (!validatePhone(phone)) errors.phone = "Phone must be 10 digits.";
+    if (!dob) errors.dob = "Date of birth is required.";
+    else if (!validateDob(dob))
+      errors.dob = "You must be at least 13 years old.";
     if (!signupPassword) errors.password = "Password is required.";
     else if (!validatePassword(signupPassword))
       errors.password = "Password must be at least 8 characters.";
@@ -109,6 +122,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
     name &&
     signupEmail &&
     phone &&
+    dob &&
     signupPassword &&
     confirmPassword &&
     Object.keys(signupErrors).length === 0;
@@ -274,6 +288,26 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
                     )}
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="dob">Date of Birth</Label>
+                    <Input
+                      id="dob"
+                      type="date"
+                      className="rounded-2xl"
+                      required
+                      value={dob}
+                      onChange={(e) => {
+                        setDob(e.target.value);
+                        if (signupErrors.dob)
+                          setSignupErrors((s) => ({ ...s, dob: undefined }));
+                      }}
+                    />
+                    {signupErrors.dob && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {signupErrors.dob}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
                     <Input
                       id="signup-password"
@@ -329,6 +363,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
                       !name ||
                       !signupEmail ||
                       !phone ||
+                      !dob ||
                       !signupPassword ||
                       !confirmPassword
                     }
