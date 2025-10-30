@@ -36,13 +36,15 @@ class AgentState(TypedDict):
 
 def analyze_symptoms(state: AgentState):
     """
-    Node 1: Takes the FULL conversation history and returns a JSON analysis.
+    Node 1: Analyzes symptoms, queries the JSON, and proactively offers to book.
     """
-    print("---NODE: ANALYZE_SYMPTOMS---")
+    print("---NODE: ANALYZE_SYMPTOMS (PROACTIVE BOOKING)---")
     
-    prompt_template = """
-    You are a medical triage assistant. Analyze the user's symptoms from the following conversation and suggest a relevant medical specialty.
-    The user's symptoms are in the chat history.
+    # --- Part 1: Get the Specialty from the LLM ---
+    
+    analysis_prompt_template = """
+    You are a medical triage assistant. Your first job is to analyze the user's symptoms
+    and determine the single, most relevant medical specialty.
     
     CHAT HISTORY:
     {chat_history}
@@ -50,28 +52,65 @@ def analyze_symptoms(state: AgentState):
     Respond ONLY with a valid JSON object in the following format:
     {{
         "analysis": "A brief summary of the user's symptoms and potential cause.",
-        "suggested_specialty": "The medical specialty to recommend, e.g., 'General Physician', 'Cardiologist'."
+        "suggested_specialty": "The medical specialty to recommend, e.g., 'General Physician', 'Cardiologist', 'Dermatologist'."
     }}
     """
     
-    prompt = ChatPromptTemplate.from_template(prompt_template)
+    prompt = ChatPromptTemplate.from_template(analysis_prompt_template)
     chain = prompt | llm | StrOutputParser()
     
     try:
-        # Join the list of messages into a single string for the prompt
         history_str = "\n".join(state["messages"])
         response_text = chain.invoke({"chat_history": history_str})
         
-        print(f"LLM raw response: {response_text}")
+        print(f"LLM specialty response: {response_text}")
         response_json = json.loads(response_text)
         
+        analysis = response_json.get("analysis")
+        specialty = response_json.get("suggested_specialty")
+        
+        if not specialty:
+            raise Exception("LLM failed to provide a specialty.")
+
+        # --- Part 2: Query the JSON to find the best doctor ---
+        
+        print(f"Querying JSON for specialty: {specialty}")
+        # Note: This assumes doctors.json is in the /ai folder.
+        # If you run main.py from the root, the path might need to be 'ai/doctors.json'
+        with open('doctors.json', 'r') as f:
+            doctors_db = json.load(f)
+
+        # Filter doctors by the specialty the LLM suggested
+        relevant_doctors = [doc for doc in doctors_db if doc["specialty"].lower() == specialty.lower()]
+        
+        if not relevant_doctors:
+            # If no doctor, just give the analysis
+            final_response_message = (
+                f"{analysis} "
+                f"Based on this, I recommend you see a **{specialty}**. "
+                f"Would you like to see a list of available doctors?"
+            )
+        else:
+            # Find the best doctor (highest rating)
+            best_doctor = max(relevant_doctors, key=lambda doc: doc["rating"])
+            
+            # --- THIS IS THE "WOW" RESPONSE ---
+            final_response_message = (
+                f"{analysis} "
+                f"Based on this, I recommend you see a **{specialty}**. "
+                f"The top-rated specialist in your area is **{best_doctor['name']} ({best_doctor['rating']} stars)**. "
+                f"Their next available slot is **{best_doctor['next_slot']}**. "
+                f"Would you like me to book this for you?"
+            )
+
         return {
-            "analysis": response_json.get("analysis"),
-            "suggested_specialty": response_json.get("suggested_specialty"),
-            "messages": ["Analysis complete."] # This is a system message, not shown to user
+            "analysis": final_response_message, # This is the new, proactive message
+            "suggested_specialty": specialty,
+            "messages": ["Analysis complete. Offered to book."]
         }
+        
     except Exception as e:
-        print(f"---ERROR: FAILED TO PARSE LLM JSON: {e}---")
+        print(f"---ERROR IN ANALYZE_SYMPTOMS: {e}---")
         return {
             "analysis": "Error: Could not analyze symptoms.",
             "suggested_specialty": "Error",
