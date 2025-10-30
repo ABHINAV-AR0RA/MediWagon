@@ -1,0 +1,30 @@
+[
+  {
+    "id": "doc1",
+    "name": "Dr. Anil Sharma",
+    "specialty": "Cardiologist",
+    "rating": 4.9,
+    "next_slot": "Tomorrow at 10:00 AM"
+  },
+  {
+    "id": "doc2",
+    "name": "Dr. Priya Gupta",
+    "specialty": "Cardiologist",
+    "rating": 4.7,
+    "next_slot": "Tomorrow at 11:00 AM"
+  },
+  {
+    "id": "doc3",
+    "name": "Dr. Vikram Singh",
+    "specialty": "General Physician",
+    "rating": 4.8,
+    "next_slot": "Today at 4:00 PM"
+  },
+  {
+    "id": "doc4",
+    "name": "Dr. Sunita Reddy",
+    "specialty": "Dermatologist",
+    "rating": 4.9,
+    "next_slot": "Tomorrow at 9:00 AM"
+  }
+]
