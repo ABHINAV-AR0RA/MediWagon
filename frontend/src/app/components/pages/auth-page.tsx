@@ -30,11 +30,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
     password?: string;
   }>({});
 
-  // Sign-up state
+  // Updated Sign-up state
   const [name, setName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [dob, setDob] = useState("");
+  const [age, setAge] = useState<number | null>(null);
+  const [address, setAddress] = useState("");
+  const [gender, setGender] = useState<"male" | "female" | "other">();
   const [signupPassword, setSignupPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [signupErrors, setSignupErrors] = useState<{
@@ -42,6 +45,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
     email?: string;
     phone?: string;
     dob?: string;
+    address?: string;
+    gender?: string;
     password?: string;
     confirm?: string;
   }>({});
@@ -83,7 +88,22 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
     }, 1500);
   };
 
-  // Sign-up handlers
+  // Add age calculation function
+  const calculateAge = (birthDate: string) => {
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birth.getDate())
+    ) {
+      age--;
+    }
+    return age;
+  };
+
+  // Updated validation
   const handleSignupValidate = () => {
     const errors: typeof signupErrors = {};
     if (!name.trim()) errors.name = "Full name is required.";
@@ -95,6 +115,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
     if (!dob) errors.dob = "Date of birth is required.";
     else if (!validateDob(dob))
       errors.dob = "You must be at least 13 years old.";
+    if (!address.trim()) errors.address = "Address is required.";
+    if (!gender) errors.gender = "Please select your gender.";
     if (!signupPassword) errors.password = "Password is required.";
     else if (!validatePassword(signupPassword))
       errors.password = "Password must be at least 8 characters.";
@@ -123,6 +145,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
     signupEmail &&
     phone &&
     dob &&
+    address &&
+    gender &&
     signupPassword &&
     confirmPassword &&
     Object.keys(signupErrors).length === 0;
@@ -296,17 +320,75 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
                       required
                       value={dob}
                       onChange={(e) => {
-                        setDob(e.target.value);
+                        const newDob = e.target.value;
+                        setDob(newDob);
+                        setAge(calculateAge(newDob));
                         if (signupErrors.dob)
                           setSignupErrors((s) => ({ ...s, dob: undefined }));
                       }}
                     />
+                    {age !== null && (
+                      <p className="text-sm text-muted-foreground">
+                        Age: {age} years
+                      </p>
+                    )}
                     {signupErrors.dob && (
                       <p className="text-sm text-red-600 mt-1">
                         {signupErrors.dob}
                       </p>
                     )}
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Address</Label>
+                    <Input
+                      id="address"
+                      type="text"
+                      placeholder="Enter your full address"
+                      className="rounded-2xl"
+                      required
+                      value={address}
+                      onChange={(e) => {
+                        setAddress(e.target.value);
+                        if (signupErrors.address)
+                          setSignupErrors((s) => ({
+                            ...s,
+                            address: undefined,
+                          }));
+                      }}
+                    />
+                    {signupErrors.address && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {signupErrors.address}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gender">Gender</Label>
+                    <select
+                      id="gender"
+                      className="w-full rounded-2xl border border-input bg-background px-3 py-2"
+                      value={gender}
+                      onChange={(e) => {
+                        setGender(
+                          e.target.value as "male" | "female" | "other"
+                        );
+                        if (signupErrors.gender)
+                          setSignupErrors((s) => ({ ...s, gender: undefined }));
+                      }}
+                      required
+                    >
+                      <option value="">Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                    {signupErrors.gender && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {signupErrors.gender}
+                      </p>
+                    )}
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
                     <Input
@@ -364,6 +446,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
                       !signupEmail ||
                       !phone ||
                       !dob ||
+                      !address ||
+                      !gender ||
                       !signupPassword ||
                       !confirmPassword
                     }
