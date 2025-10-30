@@ -1,71 +1,58 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { LandingPage } from './components/pages/landing-page';
-import { AuthPage } from './components/pages/auth-page';
-import { Dashboard } from './components/pages/dashboard';
-import { Appointments } from './components/pages/appointments';
-import { HealthRecords } from './components/pages/health-records';
-import { Medications } from './components/pages/medications';
-import { ProfileSettings } from './components/pages/profile-settings';
-import { FloatingAssistant } from './components/floating-assistant';
-import { Button } from './components/ui/button';
-import { MessageCircle, X } from 'lucide-react';
-import { Toaster } from './components/ui/sonner';
-
-type Page = 'landing' | 'auth' | 'dashboard' | 'appointments' | 'records' | 'medications' | 'profile';
+import React, { useState, useEffect } from "react";
+import { LandingPage } from "./components/pages/landing-page";
+import { AuthPage } from "./components/pages/auth-page";
+import { Dashboard } from "./components/pages/dashboard";
+import { Appointments } from "./components/pages/appointments";
+import { HealthRecords } from "./components/pages/health-records";
+import { Medications } from "./components/pages/medications";
+import { ProfileSettings } from "./components/pages/profile-settings";
+import { FloatingAssistant } from "./components/floating-assistant";
+import { Button } from "./components/ui/button";
+import { MessageCircle, X } from "lucide-react";
+import { AuthProvider } from "../context/AuthContext";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('landing');
+  const [currentPage, setCurrentPage] = useState<
+    | "landing"
+    | "auth"
+    | "dashboard"
+    | "appointments"
+    | "records"
+    | "medications"
+    | "profile"
+  >("landing");
   const [isDark, setIsDark] = useState(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    if (typeof window !== "undefined") {
+      if (isDark) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
     }
   }, [isDark]);
 
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-  };
+  const toggleTheme = () => setIsDark((s) => !s);
 
-  const handleGetStarted = () => {
-    setCurrentPage('auth');
-  };
-
-  const handleAuth = () => {
-    setCurrentPage('dashboard');
-  };
-
-  const handleNavigate = (page: string) => {
-    setCurrentPage(page as Page);
-  };
-
-  const handleBack = () => {
-    setCurrentPage('dashboard');
-  };
-
-  const handleLogoClick = () => {
-    setCurrentPage('dashboard');
-  };
-
-  const handleLogout = () => {
-    setCurrentPage('landing');
-  };
-
-  const handleProfileClick = () => {
-    setCurrentPage('profile');
-  };
+  const handleGetStarted = () => setCurrentPage("auth");
+  const handleAuth = () => setCurrentPage("dashboard");
+  const handleNavigate = (page: string) => setCurrentPage(page as any);
+  const handleBack = () => setCurrentPage("dashboard");
+  const handleLogoClick = () => setCurrentPage("dashboard");
+  const handleLogout = () => setCurrentPage("landing");
+  const handleProfileClick = () => setCurrentPage("profile");
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'landing':
+      case "landing":
         return <LandingPage onGetStarted={handleGetStarted} />;
-      case 'auth':
+      case "auth":
         return <AuthPage onAuth={handleAuth} />;
-      case 'dashboard':
+      case "dashboard":
         return (
           <Dashboard
             isDark={isDark}
@@ -76,7 +63,7 @@ export default function App() {
             onProfileClick={handleProfileClick}
           />
         );
-      case 'appointments':
+      case "appointments":
         return (
           <Appointments
             isDark={isDark}
@@ -87,7 +74,7 @@ export default function App() {
             onProfileClick={handleProfileClick}
           />
         );
-      case 'records':
+      case "records":
         return (
           <HealthRecords
             isDark={isDark}
@@ -98,7 +85,7 @@ export default function App() {
             onProfileClick={handleProfileClick}
           />
         );
-      case 'medications':
+      case "medications":
         return (
           <Medications
             isDark={isDark}
@@ -109,7 +96,7 @@ export default function App() {
             onProfileClick={handleProfileClick}
           />
         );
-      case 'profile':
+      case "profile":
         return (
           <ProfileSettings
             isDark={isDark}
@@ -126,31 +113,33 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen">
-      {renderPage()}
-      
-      {/* Floating Assistant Button */}
-      {currentPage !== 'landing' && currentPage !== 'auth' && (
-        <Button
-          size="icon"
-          className="fixed bottom-6 right-6 w-16 h-16 rounded-full shadow-2xl hover:scale-110 transition-transform z-40"
-          onClick={() => setIsAssistantOpen(!isAssistantOpen)}
-        >
-          {isAssistantOpen ? (
-            <X className="w-6 h-6" />
-          ) : (
-            <MessageCircle className="w-6 h-6" />
-          )}
-        </Button>
-      )}
+    <AuthProvider>
+      <div className="min-h-screen">
+        {renderPage()}
 
-      {/* Floating Assistant Modal */}
-      <FloatingAssistant
-        isOpen={isAssistantOpen}
-        onClose={() => setIsAssistantOpen(false)}
-      />
+        {/* Floating Assistant Button */}
+        {currentPage !== "landing" && currentPage !== "auth" && (
+          <Button
+            size="icon"
+            className="fixed bottom-6 right-6 w-16 h-16 rounded-full shadow-2xl hover:scale-110 transition-transform z-40"
+            onClick={() => setIsAssistantOpen(!isAssistantOpen)}
+          >
+            {isAssistantOpen ? (
+              <X className="w-6 h-6" />
+            ) : (
+              <MessageCircle className="w-6 h-6" />
+            )}
+          </Button>
+        )}
 
-      <Toaster />
-    </div>
+        {/* Floating Assistant Modal */}
+        <FloatingAssistant
+          isOpen={isAssistantOpen}
+          onClose={() => setIsAssistantOpen(false)}
+        />
+
+        <Toaster />
+      </div>
+    </AuthProvider>
   );
 }

@@ -11,6 +11,8 @@ import {
   CardTitle,
 } from "../ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { useAuth } from "../../../context/AuthContext";
+import toast from "react-hot-toast";
 
 // ADDED: API imports (removed useNavigate)
 import {
@@ -62,6 +64,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
   const [apiError, setApiError] = useState<string | null>(null);
   const [apiMessage, setApiMessage] = useState<string | null>(null);
 
+  const { login } = useAuth();
+
   // Basic validators
   const validateEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
   const validatePhone = (value: string) => /^\d{10,15}$/.test(value); // 10-15 digits
@@ -89,7 +93,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
     return Object.keys(errors).length === 0;
   };
 
-  // UPDATED: Sign-in submit — calls loginUser
+  // UPDATED: Sign-in submit — calls loginUser, saves token/user, shows toast
   const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setApiError(null);
@@ -102,14 +106,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
         password: signinPassword,
       };
       const resp: LoginResponse = await loginUser(payload);
-      // On successful login, call parent handler to navigate to dashboard
+      login(resp); // Save to context/localStorage
       setIsLoading(false);
       onAuth();
-      // Optionally store token / user in localStorage here for future use
-      // localStorage.setItem("token", resp.token);
     } catch (err) {
       setIsLoading(false);
-      setApiError(err instanceof Error ? err.message : "Login failed");
+      const msg = err instanceof Error ? err.message : "Login failed";
+      setApiError(msg);
+      toast.error(msg); // Show toast for invalid credentials
     }
   };
 
