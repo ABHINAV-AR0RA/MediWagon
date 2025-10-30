@@ -237,7 +237,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <div
                     key={index}
                     onClick={task.action}
-                    className="flex items-center gap-3 p-4 rounded-2xl bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors"
+                    className={`flex items-center gap-3 p-4 rounded-2xl bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors ${
+                      task.title === "Medication Reminders" ? "mb-6" : ""
+                    }`}
                   >
                     <div
                       className={`w-10 h-10 rounded-xl ${task.color} flex items-center justify-center`}
@@ -261,7 +263,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {upcomingAppointments.map((appointment) => (
                   <div
                     key={appointment.id}
-                    className="p-4 rounded-2xl bg-secondary/50 hover:bg-secondary transition-colors cursor-pointer"
+                    className={`p-4 rounded-2xl bg-secondary/50 hover:bg-secondary transition-colors cursor-pointer ${
+                      appointment.doctor === "Dr. Michael Chen" ? "mb-6" : ""
+                    }`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div>
