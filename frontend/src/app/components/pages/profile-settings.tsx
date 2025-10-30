@@ -235,13 +235,13 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isDark, toggle
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center justify-between p-4 rounded-2xl bg-secondary/30">
+              {/* <div className="flex items-center justify-between p-4 rounded-2xl bg-secondary/30">
                 <div>
                   <p>Two-Factor Authentication</p>
                   <p className="text-muted-foreground">Add extra security layer</p>
                 </div>
                 <Switch />
-              </div>
+              </div> */}
               <div className="flex items-center justify-between p-4 rounded-2xl bg-secondary/30">
                 <div>
                   <p>Data Sharing</p>
