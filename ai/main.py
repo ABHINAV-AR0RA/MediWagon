@@ -6,9 +6,9 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 import uvicorn
-from typing import List
-import requests
 from typing import List, Optional
+import requests
+from fastapi.middleware.cors import CORSMiddleware # <-- 1. NEW IMPORT
 
 # --- 1. Import Your Agents ---
 from symptom_agent import app as symptom_agent_app 
@@ -37,10 +37,26 @@ app = FastAPI(
     description="This service runs all AI agents for the Aasha Healthcare app."
 )
 
-# --- 5. HACKATHON MEMORY (Simple Dictionary) ---
+# --- 5. NEW: CONFIGURE CORS ---
+# This tells your server to accept requests from your frontend
+
+origins = [
+    "http://localhost:3000",          # Your local frontend
+    "https://medi-wagon.vercel.app",  # Your deployed frontend
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"], # Allows all headers
+)
+
+# --- 6. HACKATHON MEMORY (Simple Dictionary) ---
 chat_memory = {}
 
-# --- 6. Define the "API Contract" (Models) ---
+# --- 7. Define the "API Contract" (Models) ---
 
 class SymptomRequest(BaseModel):
     session_id: str
@@ -68,14 +84,13 @@ class ReminderResponse(BaseModel):
     parsed_time: str
     medication: str
 
-# --- 7. Create API Endpoints ---
+# --- 8. Create API Endpoints ---
 
 @app.get("/")
 def read_root():
     return {"status": "Aasha AI Service is running!"}
 
 
-# === THIS IS THE UPGRADED, FAULT-TOLERANT ENDPOINT ===
 @app.post("/api/v1/agents/analyze-symptoms", response_model=SymptomResponse)
 async def analyze_symptoms(request: SymptomRequest):
     """
@@ -108,6 +123,7 @@ async def analyze_symptoms(request: SymptomRequest):
         analysis=aasha_response,
         suggested_specialty=specialty
     )
+
 
 @app.post("/api/v1/agents/summarize-report", response_model=ReportResponse)
 async def summarize_report(request: ReportRequest):
@@ -169,6 +185,6 @@ async def schedule_reminder(request: ReminderRequest):
         medication=request.medication
     )
 
-# --- 8. Run the Server ---
+# --- 9. Run the Server ---
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
