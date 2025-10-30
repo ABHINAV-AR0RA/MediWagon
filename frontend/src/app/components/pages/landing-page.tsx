@@ -90,7 +90,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         </div>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-20">
           {features.map((feature, index) => (
             <Card
               key={index}
@@ -151,7 +151,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               </p>
               <Button
                 size="lg"
-                className="rounded-2xl px-8"
+                className="rounded-2xl px-8 mb-4"
                 onClick={onGetStarted}
               >
                 Get Started Free
