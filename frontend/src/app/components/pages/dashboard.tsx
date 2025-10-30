@@ -90,9 +90,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     {
       icon: <ShoppingBag className="w-5 h-5" />,
       title: "Buy Medicine",
-      count: "3 items",
       color: "bg-purple-500/10 text-purple-500",
-      action: () => {},
+      action: () => {
+        const newWin = window.open("https://www.truemeds.in/", "_blank");
+        if (newWin) newWin.opener = null;
+      },
     },
     {
       icon: <Bell className="w-5 h-5" />,
