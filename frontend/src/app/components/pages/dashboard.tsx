@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Navbar } from "../navbar";
 import { MediWagonAvatar } from "../mediwagon-avatar";
 import { Button } from "../ui/button";
@@ -17,6 +17,8 @@ import {
   MapPin,
   Star,
 } from "lucide-react";
+import { useSpeechRecognition } from "../../../hooks/useSpeechRecognition";
+import { VoiceNote } from "../voice-note";
 
 interface DashboardProps {
   isDark: boolean;
@@ -31,6 +33,8 @@ interface Message {
   id: string;
   text: string;
   sender: "user" | "assistant";
+  audioUrl?: string;
+  isLoading?: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -50,6 +54,137 @@ export const Dashboard: React.FC<DashboardProps> = ({
   ]);
   const [inputText, setInputText] = useState("");
   const [isListening, setIsListening] = useState(false);
+  const [processingBackend, setProcessingBackend] = useState(false);
+
+  const {
+    isListening: speechIsListening,
+    transcript,
+    startListening,
+    stopListening,
+    hasSupport,
+    error,
+    isProcessing,
+  } = useSpeechRecognition();
+
+  useEffect(() => {
+    if (transcript && !speechIsListening) {
+      handleVoiceInput(transcript);
+    }
+  }, [transcript, speechIsListening]);
+
+  const handleVoiceInput = async (text: string) => {
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text,
+      sender: "user",
+    };
+
+    // Add a loading message immediately
+    const loadingMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      text: "Processing your request...",
+      sender: "assistant",
+      isLoading: true,
+    };
+
+    setMessages((prev) => [...prev, userMessage, loadingMessage]);
+    setInputText("");
+    setProcessingBackend(true);
+
+    try {
+      // read token from localStorage if present
+      const token =
+        (localStorage.getItem("authToken") || localStorage.getItem("token")) ??
+        null;
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const response = await fetch("http://localhost:5000/api/voice/process", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ text, userName: "Gayathri" }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Replace loading message with actual response
+      if (data.success) {
+        const raw = data.audioFile;
+        const audioUrl =
+          typeof raw === "string"
+            ? raw.startsWith("http")
+              ? raw
+              : raw.startsWith("/")
+              ? `http://localhost:5000${raw}`
+              : `http://localhost:5000/${raw}`
+            : "";
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.isLoading
+              ? {
+                  id: msg.id,
+                  text: data.message,
+                  sender: "assistant",
+                  audioUrl,
+                }
+              : msg
+          )
+        );
+      } else {
+        // non-success: replace loading with error text
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.isLoading
+              ? {
+                  id: msg.id,
+                  text:
+                    data?.message ||
+                    "Sorry, I couldn't process your request. Please try again.",
+                  sender: "assistant",
+                }
+              : msg
+          )
+        );
+      }
+    } catch (err) {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.isLoading
+            ? {
+                id: msg.id,
+                text: "Sorry, I couldn't process your request. Please try again.",
+                sender: "assistant",
+              }
+            : msg
+        )
+      );
+      console.error("Error processing voice:", err);
+    } finally {
+      setProcessingBackend(false);
+    }
+  };
+
+  const handleMicClick = () => {
+    if (!hasSupport) {
+      alert("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    if (speechIsListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
 
   const quickSymptoms = ["Fever", "Cold", "Headache", "Cough", "Fatigue"];
 
@@ -177,9 +312,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                               : "bg-secondary text-foreground"
                           }`}
                         >
-                          <p className="whitespace-pre-wrap break-words">
-                            {message.text}
-                          </p>
+                          <div className="whitespace-pre-wrap break-words">
+                            {message.isLoading ? (
+                              <div className="flex items-center gap-2">
+                                <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />
+                                <span className="text-muted-foreground">
+                                  {message.text}
+                                </span>
+                              </div>
+                            ) : (
+                              message.text
+                            )}
+                          </div>
+                          {message.audioUrl && !message.isLoading && (
+                            <VoiceNote audioUrl={message.audioUrl} />
+                          )}
                         </div>
                       </div>
                     ))}
@@ -201,17 +348,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
-                      placeholder="Describe your symptoms or ask a question..."
+                      placeholder={
+                        speechIsListening
+                          ? "Listening..."
+                          : processingBackend || isProcessing
+                          ? "Processing voice..."
+                          : "Describe your symptoms or ask a question..."
+                      }
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
                       onKeyPress={(e) => e.key === "Enter" && handleSend()}
                       className="flex-1 rounded-2xl bg-input-background"
+                      // optionally disable while backend is processing
+                      disabled={processingBackend}
                     />
                     <Button
                       size="icon"
-                      variant={isListening ? "default" : "outline"}
-                      onClick={() => setIsListening(!isListening)}
-                      className="rounded-2xl"
+                      variant={speechIsListening ? "default" : "outline"}
+                      onClick={handleMicClick}
+                      className={`rounded-2xl ${
+                        speechIsListening ? "animate-pulse" : ""
+                      }`}
                     >
                       <Mic className="w-5 h-5" />
                     </Button>
