@@ -247,7 +247,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isDark, toggle
                   <p>Data Sharing</p>
                   <p className="text-muted-foreground">Share anonymized health data</p>
                 </div>
-                <Switch />
+                <Switch defaultChecked />
               </div>
               <Button variant="outline" className="w-full rounded-2xl">
                 Change Password
