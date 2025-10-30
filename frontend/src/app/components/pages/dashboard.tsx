@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Navbar } from "../navbar";
 import { MediWagonAvatar } from "../mediwagon-avatar";
 import { Button } from "../ui/button";
@@ -17,6 +17,7 @@ import {
   MapPin,
   Star,
 } from "lucide-react";
+import { useSpeechRecognition } from "../../../hooks/useSpeechRecognition";
 
 interface DashboardProps {
   isDark: boolean;
@@ -50,6 +51,52 @@ export const Dashboard: React.FC<DashboardProps> = ({
   ]);
   const [inputText, setInputText] = useState("");
   const [isListening, setIsListening] = useState(false);
+
+  const {
+    isListening: speechIsListening,
+    transcript,
+    startListening,
+    stopListening,
+    hasSupport,
+    error,
+  } = useSpeechRecognition();
+
+  useEffect(() => {
+    if (transcript && !speechIsListening) {
+      setInputText(transcript);
+
+      const newMessage: Message = {
+        id: Date.now().toString(),
+        text: transcript,
+        sender: "user",
+      };
+
+      setMessages((prev) => [...prev, newMessage]);
+      setInputText("");
+
+      setTimeout(() => {
+        const response: Message = {
+          id: (Date.now() + 1).toString(),
+          text: "I understand. Based on your symptoms, I recommend booking an appointment with a general physician. Would you like me to help you find one nearby?",
+          sender: "assistant",
+        };
+        setMessages((prev) => [...prev, response]);
+      }, 1000);
+    }
+  }, [transcript, speechIsListening]);
+
+  const handleMicClick = () => {
+    if (!hasSupport) {
+      alert("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    if (speechIsListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
 
   const quickSymptoms = ["Fever", "Cold", "Headache", "Cough", "Fatigue"];
 
@@ -201,7 +248,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
-                      placeholder="Describe your symptoms or ask a question..."
+                      placeholder={
+                        speechIsListening
+                          ? "Listening... Speak now"
+                          : "Describe your symptoms or ask a question..."
+                      }
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
                       onKeyPress={(e) => e.key === "Enter" && handleSend()}
@@ -209,9 +260,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     />
                     <Button
                       size="icon"
-                      variant={isListening ? "default" : "outline"}
-                      onClick={() => setIsListening(!isListening)}
-                      className="rounded-2xl"
+                      variant={speechIsListening ? "default" : "outline"}
+                      onClick={handleMicClick}
+                      className={`rounded-2xl ${
+                        speechIsListening ? "animate-pulse" : ""
+                      }`}
                     >
                       <Mic className="w-5 h-5" />
                     </Button>
