@@ -48,10 +48,12 @@ interface UseSpeechRecognitionReturn {
   stopListening: () => void;
   hasSupport: boolean;
   error: string | null;
+  isProcessing: boolean;
 }
 
 export const useSpeechRecognition = (): UseSpeechRecognitionReturn => {
   const [isListening, setIsListening] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   
@@ -95,6 +97,35 @@ export const useSpeechRecognition = (): UseSpeechRecognitionReturn => {
     };
   }, []);
 
+  const processVoiceWithBackend = async (text: string) => {
+    setIsProcessing(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/voice/process', {
+        method: 'POST',
+        headers: {
+        
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text,
+          userName: 'User', // This should be dynamic
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error processing voice:', error);
+      setError('Failed to process voice input');
+      return null;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const startListening = () => {
     setError(null);
     setTranscript('');
@@ -113,6 +144,7 @@ export const useSpeechRecognition = (): UseSpeechRecognitionReturn => {
     startListening,
     stopListening,
     hasSupport,
-    error
+    error,
+    isProcessing
   };
 };
