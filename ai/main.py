@@ -33,8 +33,8 @@ except Exception as e:
 
 # --- 4. Initialize FastAPI App ---
 app = FastAPI(
-    title="Aasha AI Service",
-    description="This service runs all AI agents for the Aasha Healthcare app."
+    title="Asha AI Service",
+    description="This service runs all AI agents for the Asha Healthcare app."
 )
 
 # --- 5. NEW: CONFIGURE CORS ---
@@ -91,6 +91,7 @@ def read_root():
     return {"status": "Aasha AI Service is running!"}
 
 
+
 @app.post("/api/v1/agents/analyze-symptoms", response_model=SymptomResponse)
 async def analyze_symptoms(request: SymptomRequest):
     """
@@ -132,7 +133,7 @@ async def summarize_report(request: ReportRequest):
         return ReportResponse(simple_summary="Error: LLM not initialized")
     try:
         prompt = f"""
-        You are 'Aasha', a helpful medical assistant.
+        You are 'Asha', a helpful medical assistant.
         Explain the following medical report text to a patient in simple, non-medical language.
         Be clear and supportive.
         Report Text: {request.scrubbed_report_text}

@@ -21,7 +21,7 @@ export const FloatingAssistant: React.FC<FloatingAssistantProps> = ({ isOpen, on
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Hi! I\'m MediWagon, your AI health companion. How can I help you today?',
+      text: 'Hi! I\'m Asha, your AI health companion. How can I help you today?',
       sender: 'assistant',
       timestamp: new Date()
     }
@@ -68,7 +68,7 @@ export const FloatingAssistant: React.FC<FloatingAssistantProps> = ({ isOpen, on
           <div className="flex items-center gap-4">
             <MediWagonAvatar size="md" isListening={isListening} showWaveform={isListening} />
             <div className="text-white">
-              <h3>MediWagon Assistant</h3>
+              <h3>Asha</h3>
               <p className="opacity-90">Always here to help</p>
             </div>
           </div>

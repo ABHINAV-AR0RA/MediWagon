@@ -206,7 +206,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuth }) => {
           <div className="flex justify-center mb-4">
             <MediWagonAvatar size="lg" />
           </div>
-          <h2 className="mb-2">Welcome to MediWagon</h2>
+          <h2 className="mb-2">Welcome to Asha</h2>
           <p className="text-muted-foreground">
             Your AI health companion is ready to help
           </p>

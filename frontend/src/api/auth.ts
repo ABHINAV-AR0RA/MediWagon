@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "http://localhost:5000/api/auth";
+const API_BASE = "https://doc-backend-hsf5.onrender.com/api/auth";
 
 export interface RegisterData {
   name: string;

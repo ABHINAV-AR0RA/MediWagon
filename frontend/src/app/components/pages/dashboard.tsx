@@ -48,7 +48,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: "Hello Gayathri! I'm MediWagon. How are you feeling today?",
+      text: "Hello Gayathri! I'm Asha. How are you feeling today?",
       sender: "assistant",
     },
   ]);
@@ -123,8 +123,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
             ? raw.startsWith("http")
               ? raw
               : raw.startsWith("/")
-              ? `http://localhost:5000${raw}`
-              : `http://localhost:5000/${raw}`
+              ? `https://doc-backend-hsf5.onrender.com${raw}`
+              : `https://doc-backend-hsf5.onrender.com/${raw}`
             : "";
 
         setMessages((prev) =>
@@ -240,26 +240,83 @@ export const Dashboard: React.FC<DashboardProps> = ({
     },
   ];
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputText.trim()) return;
 
-    const newMessage: Message = {
+    const userMessage: Message = {
       id: Date.now().toString(),
       text: inputText,
       sender: "user",
     };
 
-    setMessages([...messages, newMessage]);
-    setInputText("");
+    // Add a loading message immediately
+    const loadingMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      text: "Processing your request...",
+      sender: "assistant",
+      isLoading: true,
+    };
 
-    setTimeout(() => {
-      const response: Message = {
-        id: (Date.now() + 1).toString(),
-        text: "I understand. Based on your symptoms, I recommend booking an appointment with a general physician. Would you like me to help you find one nearby?",
-        sender: "assistant",
+    setMessages((prev) => [...prev, userMessage, loadingMessage]);
+    setInputText("");
+    setProcessingBackend(true);
+
+    try {
+      const token =
+        (localStorage.getItem("authToken") || localStorage.getItem("token")) ??
+        null;
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Accept: "application/json",
       };
-      setMessages((prev) => [...prev, response]);
-    }, 1000);
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const response = await fetch(
+        "https://doc-backend-hsf5.onrender.com/api/appointments/analyze",
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ symptoms: inputText }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Replace loading message with actual response
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.isLoading
+            ? {
+                id: msg.id,
+                text:
+                  data.data?.summary ||
+                  "Sorry, I couldn't analyze your symptoms properly.",
+                sender: "assistant",
+              }
+            : msg
+        )
+      );
+    } catch (err) {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.isLoading
+            ? {
+                id: msg.id,
+                text: "Sorry, I couldn't process your request. Please try again.",
+                sender: "assistant",
+              }
+            : msg
+        )
+      );
+      console.error("Error processing text:", err);
+    } finally {
+      setProcessingBackend(false);
+    }
   };
 
   const handleQuickSymptom = (symptom: string) => {
@@ -286,7 +343,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="flex items-center gap-4">
                   <MediWagonAvatar size="sm" isListening={isListening} />
                   <div>
-                    <CardTitle>Talk to MediWagon</CardTitle>
+                    <CardTitle>Talk to Asha</CardTitle>
                     <p className="text-muted-foreground">
                       Your AI health assistant
                     </p>
@@ -352,15 +409,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         speechIsListening
                           ? "Listening..."
                           : processingBackend || isProcessing
-                          ? "Processing voice..."
+                          ? "Processing..."
                           : "Describe your symptoms or ask a question..."
                       }
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
                       onKeyPress={(e) => e.key === "Enter" && handleSend()}
                       className="flex-1 rounded-2xl bg-input-background"
-                      // optionally disable while backend is processing
-                      disabled={processingBackend}
+                      disabled={
+                        processingBackend || speechIsListening || isProcessing
+                      }
                     />
                     <Button
                       size="icon"
