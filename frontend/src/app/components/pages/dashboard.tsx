@@ -123,8 +123,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
             ? raw.startsWith("http")
               ? raw
               : raw.startsWith("/")
-              ? `http://localhost:5000${raw}`
-              : `http://localhost:5000/${raw}`
+              ? `https://doc-backend-hsf5.onrender.com${raw}`
+              : `https://doc-backend-hsf5.onrender.com/${raw}`
             : "";
 
         setMessages((prev) =>
@@ -273,7 +273,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const response = await fetch(
-        "http://localhost:5000/api/appointments/analyze",
+        "https://doc-backend-hsf5.onrender.com/api/appointments/analyze",
         {
           method: "POST",
           headers,
